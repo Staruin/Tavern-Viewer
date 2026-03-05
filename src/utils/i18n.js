@@ -97,7 +97,23 @@ const dict = {
         ruleReplace: '替换为',
         deleteRule: '删除',
         emptyRules: '暂无自定义显示规则',
-        applyImport: '应用并替换现有配置'
+        applyImport: '应用并替换现有配置',
+
+        // 服务器模式
+        serverMode: '服务器模式',
+        characterList: '角色列表',
+        searchCharacter: '搜索角色...',
+        selectChat: '选择一个聊天记录',
+        selectChatHint: '从左侧角色列表中选择要查看的聊天记录',
+        noCharacters: '未找到聊天记录',
+        noCharactersHint: '请确认数据目录已正确映射',
+        refresh: '刷新',
+        loading: '加载中...',
+        retry: '重试',
+        messages: '条消息',
+        characters: '个角色',
+        totalChats: '条聊天',
+        searchPlace: '搜索内容...'
     },
     en: {
         appTitle: '📚 Tavern Viewer',
@@ -171,7 +187,23 @@ const dict = {
         ruleReplace: 'Replace With',
         deleteRule: 'Delete',
         emptyRules: 'No custom display rules yet',
-        applyImport: 'Apply and Overwrite Config'
+        applyImport: 'Apply and Overwrite Config',
+
+        // Server mode
+        serverMode: 'Server Mode',
+        characterList: 'Characters',
+        searchCharacter: 'Search characters...',
+        selectChat: 'Select a Chat',
+        selectChatHint: 'Choose a chat from the character list on the left',
+        noCharacters: 'No chat logs found',
+        noCharactersHint: 'Make sure the data directory is correctly mapped',
+        refresh: 'Refresh',
+        loading: 'Loading...',
+        retry: 'Retry',
+        messages: 'messages',
+        characters: 'characters',
+        totalChats: 'chats',
+        searchPlace: 'Search...'
     },
     ja: {
         appTitle: '📚 酒場ビューア',
@@ -245,7 +277,23 @@ const dict = {
         ruleReplace: '置換後',
         deleteRule: '削除',
         emptyRules: 'カスタム表示ルールはありません',
-        applyImport: '適用して設定を上書きする'
+        applyImport: '適用して設定を上書きする',
+
+        // サーバーモード
+        serverMode: 'サーバーモード',
+        characterList: 'キャラクター一覧',
+        searchCharacter: 'キャラ検索...',
+        selectChat: 'チャットを選択',
+        selectChatHint: '左側のキャラクターリストから選択してください',
+        noCharacters: 'チャットログが見つかりません',
+        noCharactersHint: 'データディレクトリが正しくマッピングされているか確認してください',
+        refresh: '更新',
+        loading: '読み込み中...',
+        retry: 'リトライ',
+        messages: '件',
+        characters: 'キャラ',
+        totalChats: 'チャット',
+        searchPlace: '検索...'
     }
 }
 

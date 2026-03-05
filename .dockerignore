@@ -1,0 +1,9 @@
+node_modules
+dist
+release
+.git
+.gitignore
+electron
+*.md
+LICENSE
+public/启动服务器.py

@@ -1,17 +1,20 @@
 <!--
   App.vue - 根组件
   管理全局状态、文件导入、搜索、导出等核心功能
+  支持服务器模式（Docker 部署，自动读取 NAS 聊天目录）与独立模式（手动上传）
 -->
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import MessageList from './components/MessageList.vue'
 import InfoPanel from './components/InfoPanel.vue'
 import ChapterPanel from './components/ChapterPanel.vue'
 import SearchPanel from './components/SearchPanel.vue'
 import EditModal from './components/EditModal.vue'
 import ConfigModal from './components/ConfigModal.vue'
+import CharacterList from './components/CharacterList.vue'
 import { parseJsonl, extractContent, loadConfig, saveConfig, parseTimeBar, parseSummary, parseChoices, parseThinking } from './utils/parser.js'
 import { t, toggleLang } from './utils/i18n.js'
+import { checkServerMode, fetchChat, connectSSE } from './utils/api.js'
 
 // 状态
 const messages = ref([])
@@ -25,6 +28,11 @@ const showConfig = ref(false)
 const editMessage = ref(null)
 const fileInfo = ref(null)
 const selectedMessage = ref(null)
+
+// 服务器模式状态
+const serverMode = ref(false)
+const serverStatus = ref(null)
+let sseConnection = null
 
 // 正则配置
 const regexConfig = ref(loadConfig())
@@ -252,24 +260,106 @@ function exportJson() {
   URL.revokeObjectURL(url)
 }
 
+// 从服务器加载聊天记录
+async function loadFromServer({ character, filename, displayName }) {
+  isLoading.value = true
+  loadingProgress.value = 0
+  loadingStatus.value = '正在从服务器加载...'
+  messages.value = []
+  selectedMessage.value = null
+
+  fileInfo.value = {
+    name: `${character} / ${displayName}`,
+    size: ''
+  }
+
+  try {
+    loadingProgress.value = 30
+    loadingStatus.value = '正在读取聊天记录...'
+
+    const data = await fetchChat(character, filename)
+
+    loadingProgress.value = 60
+    loadingStatus.value = '正在解析消息内容...'
+
+    // Apply regex parsing to messages (same as parseJsonl does locally)
+    const config = regexConfig.value
+    const result = data.messages.map(msg => ({
+      ...msg,
+      content: extractContent(msg.mes, config),
+      timeBar: parseTimeBar(msg.mes, config),
+      summary: parseSummary(msg.mes, config),
+      choices: parseChoices(msg.mes, config),
+      thinking: parseThinking(msg.mes, config)
+    }))
+
+    loadingProgress.value = 85
+    loadingStatus.value = '正在初始化界面...'
+
+    messages.value = result
+    filteredMessages.value = result
+
+    if (data.fileSize) {
+      fileInfo.value.size = (data.fileSize / 1024 / 1024).toFixed(2) + ' MB'
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    if (result.length > 1) {
+      selectedMessage.value = { ...result[1], floor: 1 }
+    }
+
+    loadingProgress.value = 100
+    loadingStatus.value = '加载完成！'
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+  } catch (error) {
+    console.error('服务器加载错误:', error)
+    alert('加载失败: ' + error.message)
+  } finally {
+    isLoading.value = false
+    loadingStatus.value = ''
+  }
+}
+
+// 检测服务器模式
+async function detectServerMode() {
+  const status = await checkServerMode()
+  serverMode.value = status.serverMode
+  serverStatus.value = status
+  if (status.serverMode) {
+    console.log('[Tavern Viewer] Server mode detected:', status)
+  }
+}
+
 // 键盘快捷键
+function handleKeydown(e) {
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'f') {
+      e.preventDefault()
+      showSearch.value = !showSearch.value
+    } else if (e.key === 's') {
+      e.preventDefault()
+      exportJson()
+    }
+  }
+  if (e.key === 'Escape') {
+    showSearch.value = false
+    editMessage.value = null
+    showConfig.value = false
+  }
+}
+
 onMounted(() => {
-  window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey || e.metaKey) {
-      if (e.key === 'f') {
-        e.preventDefault()
-        showSearch.value = !showSearch.value
-      } else if (e.key === 's') {
-        e.preventDefault()
-        exportJson()
-      }
-    }
-    if (e.key === 'Escape') {
-      showSearch.value = false
-      editMessage.value = null
-      showConfig.value = false
-    }
-  })
+  window.addEventListener('keydown', handleKeydown)
+  detectServerMode()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+  if (sseConnection) {
+    sseConnection.close()
+  }
 })
 </script>
 
@@ -279,7 +369,8 @@ onMounted(() => {
     <header class="toolbar">
       <div class="toolbar-left">
         <h1 class="logo">{{ t('appTitle') }}</h1>
-        <span v-if="fileInfo" class="file-info">{{ fileInfo.name }} ({{ fileInfo.size }})</span>
+        <span v-if="fileInfo" class="file-info">{{ fileInfo.name }} <template v-if="fileInfo.size">({{ fileInfo.size }})</template></span>
+        <span v-if="serverMode" class="server-badge" :title="'Connected to ' + (serverStatus?.dataDir || 'server')">🟢 {{ t('serverMode') || '服务器模式' }}</span>
       </div>
       
       <div class="toolbar-right">
@@ -333,7 +424,11 @@ onMounted(() => {
     
     <!-- 主内容区 -->
     <main class="main-content">
-      <!-- 左侧信息面板 -->
+      <!-- 左侧：服务器模式显示角色列表，有消息时显示信息面板 -->
+      <CharacterList
+        v-if="serverMode"
+        @load-chat="loadFromServer"
+      />
       <InfoPanel 
         v-if="messages.length"
         :message="selectedMessage"
@@ -342,7 +437,8 @@ onMounted(() => {
       
       <!-- 中间消息列表 -->
       <div class="message-area">
-        <div v-if="!messages.length && !isLoading" class="empty-state">
+        <!-- 独立模式（无服务器）的空状态 -->
+        <div v-if="!messages.length && !isLoading && !serverMode" class="empty-state">
           <div class="empty-icon">📂</div>
           <h2>酒馆聊天记录查看器</h2>
           <p>点击「📁 导入」选择 JSONL 文件</p>
@@ -353,6 +449,13 @@ onMounted(() => {
             <div class="feature">⚙️ 自定义解析规则</div>
             <div class="feature">📖 章节快速导航</div>
           </div>
+        </div>
+        
+        <!-- 服务器模式的空状态 -->
+        <div v-else-if="!messages.length && !isLoading && serverMode" class="empty-state">
+          <div class="empty-icon">👈</div>
+          <h2>{{ t('selectChat') || '选择一个聊天记录' }}</h2>
+          <p>{{ t('selectChatHint') || '从左侧角色列表中选择要查看的聊天记录' }}</p>
         </div>
         
         <MessageList 
@@ -425,6 +528,15 @@ onMounted(() => {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+}
+
+.server-badge {
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border-radius: 12px;
+  font-weight: 500;
 }
 
 .file-info {

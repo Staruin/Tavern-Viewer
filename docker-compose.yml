@@ -1,0 +1,15 @@
+services:
+  tavern-viewer:
+    build: .
+    container_name: tavern-viewer
+    ports:
+      - "3000:3000"
+    volumes:
+      # 将 SillyTavern 数据目录映射到容器内的 /data（只读）
+      # 请修改左侧路径为你的 NAS 上 SillyTavern/data 实际路径
+      - /path/to/SillyTavern/data:/data:ro
+    environment:
+      - PORT=3000
+      - DATA_DIR=/data
+      - USER_DIR=default-user  # 如果你的酒馆使用了自定义用户名，请修改此处
+    restart: unless-stopped

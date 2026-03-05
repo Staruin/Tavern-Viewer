@@ -24,7 +24,7 @@ A high-performance chat log viewer & manager for [SillyTavern](https://github.co
 ### Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Tavern-Viewer.git
+git clone https://github.com/Staruin/Tavern-Viewer.git
 cd Tavern-Viewer
 ```
 

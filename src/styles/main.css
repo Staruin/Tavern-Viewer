@@ -27,6 +27,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden;
 }
 
 body {
@@ -36,6 +37,14 @@ body {
   color: var(--text-primary);
   line-height: 1.5;
   overflow: hidden;
+  overflow-x: hidden;
+}
+
+#app {
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  overflow-x: hidden;
 }
 
 /* 强制GPU加速 - 关键优化 */
@@ -238,5 +247,12 @@ textarea {
     break-inside: avoid;
     box-shadow: none !important;
     border: 1px solid #ccc !important;
+  }
+}
+
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
   }
 }

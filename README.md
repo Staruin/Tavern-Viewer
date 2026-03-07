@@ -107,6 +107,24 @@ npm run dev
 # or build: npm run build && npx serve dist
 ```
 
+### Build Troubleshooting
+
+If `npm run build` seems stuck or does not complete, do not panic.
+
+In this project, stale files in `dist/` can occasionally block a clean build.
+Please clear `dist/` first, then build again:
+
+```bash
+npm run build:clean
+```
+
+Equivalent manual flow:
+
+```bash
+# delete dist/ first, then
+npm run build
+```
+
 ### Electron (Optional)
 
 ```bash

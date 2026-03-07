@@ -516,4 +516,35 @@ function truncateRegex(regex, maxLen = 60) {
 .display-rule-field .rule-input.mono { font-size: 0.8rem; padding: 6px 10px; }
 
 .modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--border-color); }
+
+@media (max-width: 768px) {
+  .modal-overlay { align-items: flex-end; }
+  .config-modal {
+    width: 100%;
+    max-width: none;
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+  .modal-header,
+  .modal-body,
+  .modal-footer { padding-left: 14px; padding-right: 14px; }
+  .tab-bar {
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: thin;
+  }
+  .tab-btn {
+    flex: 0 0 auto;
+    padding: 10px 12px;
+  }
+  .import-export { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .preview-actions,
+  .modal-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .btn { width: 100%; }
+  .display-rule-field { flex-direction: column; align-items: stretch; gap: 4px; }
+  .display-rule-field label { min-width: 0; }
+}
 </style>

@@ -259,6 +259,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 .list-header {
@@ -291,6 +292,7 @@ onUnmounted(() => {
   padding: 4px 8px;
   border-radius: 6px;
   transition: all 0.2s ease;
+  min-height: 36px;
 }
 
 .refresh-btn:hover {
@@ -410,6 +412,7 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.15s ease;
   border-left: 3px solid transparent;
+  min-height: 56px;
 }
 
 .character-card:hover {
@@ -419,6 +422,10 @@ onUnmounted(() => {
 .character-card.expanded {
   background: var(--bg-tertiary);
   border-left-color: var(--accent-color);
+}
+
+.character-card:active {
+  background: var(--bg-hover);
 }
 
 .char-avatar {
@@ -492,6 +499,7 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.15s ease;
   border-left: 2px solid transparent;
+  min-height: 54px;
 }
 
 .chat-item:hover {
@@ -501,6 +509,10 @@ onUnmounted(() => {
 .chat-item.selected {
   background: var(--bg-secondary);
   border-left-color: #10b981;
+}
+
+.chat-item:active {
+  background: var(--bg-hover);
 }
 
 .chat-item-main {
@@ -554,5 +566,24 @@ onUnmounted(() => {
 .characters-scroll::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+  .list-header,
+  .list-search,
+  .list-footer {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .character-card {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .chat-item {
+    padding-left: 24px;
+    padding-right: 12px;
+  }
 }
 </style>

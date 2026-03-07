@@ -267,4 +267,48 @@ function handleOverlayClick(e) {
 .btn-save:hover {
   opacity: 0.9;
 }
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-end;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: none;
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .info-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .edit-textarea {
+    font-size: 0.9rem;
+  }
+
+  .modal-footer {
+    justify-content: stretch;
+  }
+
+  .btn {
+    flex: 1;
+    min-width: 0;
+  }
+}
 </style>

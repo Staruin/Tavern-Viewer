@@ -131,7 +131,7 @@ function renderContent(content) {
         <div class="floor-info">
           <div class="info-row">
             <span class="info-label">{{ t('floor') }}</span>
-            <span class="info-value floor-badge">#{{ message.floor || (message.originalIndex + 1) }}</span>
+            <span class="info-value floor-badge">#{{ message.floor || 1 }}</span>
           </div>
           
           <div class="info-row">

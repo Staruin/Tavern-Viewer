@@ -239,4 +239,30 @@ function handleKeydown(e) {
   border-radius: 4px;
   font-family: monospace;
 }
+
+@media (max-width: 768px) {
+  .search-panel {
+    top: auto;
+    right: 10px;
+    left: 10px;
+    bottom: 10px;
+    width: auto;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .input-group {
+    flex-direction: column;
+  }
+
+  .search-btn,
+  .replace-btn {
+    width: 100%;
+  }
+
+  .search-options {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
 </style>

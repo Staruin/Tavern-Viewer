@@ -24,14 +24,13 @@ const searchQuery = ref('')
 // 当前选中的楼层
 const selectedFloor = ref(0)
 
-// AI 消息列表（跳过第一条元数据）
+// AI 消息列表
 const aiMessages = computed(() => {
   const list = []
   props.messages.forEach((msg, idx) => {
-    if (idx === 0) return // 跳过元数据
     if (msg.is_user) return
 
-    const floorNumber = idx + 1 // 人类可读楼层号，从1开始（跳过元数据后+1）
+    const floorNumber = idx + 1 // 人类可读楼层号，从1开始
     const preview = (msg.content || msg.mes || '').substring(0, 60).replace(/\n/g, ' ')
     
     list.push({
@@ -47,11 +46,10 @@ const aiMessages = computed(() => {
   return list
 })
 
-// 用户消息列表（跳过第一条元数据）
+// 用户消息列表
 const userMessages = computed(() => {
   const list = []
   props.messages.forEach((msg, idx) => {
-    if (idx === 0) return // 跳过元数据
     if (!msg.is_user) return
 
     const floorNumber = idx + 1 // 人类可读楼层号
@@ -116,7 +114,7 @@ function scrollToTop() {
       <button class="action-btn" @click="scrollToTop" title="回到顶部">
         ⬆️ Top
       </button>
-      <button class="action-btn" @click="jumpTo(Math.floor(messages.length / 2) + 1)" title="跳到中间">
+      <button class="action-btn" @click="jumpTo(Math.max(1, Math.ceil(messages.length / 2)))" title="跳到中间">
         ⏺️ Mid
       </button>
       <button class="action-btn" @click="jumpTo(messages.length)" title="跳到底部">
@@ -196,7 +194,7 @@ function scrollToTop() {
     <div class="panel-footer">
       <span>🤖 {{ aiMessages.length }}</span>
       <span>👤 {{ userMessages.length }}</span>
-      <span>共 {{ messages.length > 0 ? messages.length - 1 : 0 }} 层</span>
+      <span>共 {{ messages.length }} 层</span>
     </div>
   </aside>
 </template>
@@ -211,6 +209,7 @@ function scrollToTop() {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 .panel-search {
@@ -250,6 +249,7 @@ function scrollToTop() {
   font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.15s ease;
+  min-height: 36px;
 }
 
 .action-btn:hover {
@@ -272,6 +272,7 @@ function scrollToTop() {
   cursor: pointer;
   transition: all 0.15s ease;
   border-bottom: 2px solid transparent;
+  min-height: 40px;
 }
 
 .tab-btn:hover {
@@ -300,6 +301,7 @@ function scrollToTop() {
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   transition: all 0.15s ease;
+  min-height: 54px;
 }
 
 .list-item:hover {
@@ -309,6 +311,10 @@ function scrollToTop() {
 .list-item.active {
   background: rgba(139, 92, 246, 0.1);
   border-left: 3px solid var(--accent-color);
+}
+
+.list-item:active {
+  background: var(--bg-hover);
 }
 
 .ai-item {
@@ -403,5 +409,19 @@ function scrollToTop() {
 .message-list::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+  .panel-search,
+  .quick-actions,
+  .panel-footer {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .list-item {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
 }
 </style>

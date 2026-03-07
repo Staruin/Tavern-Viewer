@@ -4,7 +4,7 @@
   支持服务器模式（Docker 部署，自动读取 NAS 聊天目录）与独立模式（手动上传）
 -->
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import MessageList from './components/MessageList.vue'
 import InfoPanel from './components/InfoPanel.vue'
 import ChapterPanel from './components/ChapterPanel.vue'
@@ -14,7 +14,7 @@ import ConfigModal from './components/ConfigModal.vue'
 import CharacterList from './components/CharacterList.vue'
 import { parseJsonl, extractContent, loadConfig, saveConfig, parseTimeBar, parseSummary, parseChoices, parseThinking } from './utils/parser.js'
 import { t, toggleLang } from './utils/i18n.js'
-import { checkServerMode, fetchChat, connectSSE } from './utils/api.js'
+import { checkServerMode, fetchChat } from './utils/api.js'
 
 // 状态
 const messages = ref([])
@@ -25,6 +25,8 @@ const loadingStatus = ref('')
 const searchQuery = ref('')
 const showSearch = ref(false)
 const showConfig = ref(false)
+const showMobileMenu = ref(false)
+const showViewMenu = ref(false)
 const editMessage = ref(null)
 const fileInfo = ref(null)
 const selectedMessage = ref(null)
@@ -33,6 +35,42 @@ const selectedMessage = ref(null)
 const serverMode = ref(false)
 const serverStatus = ref(null)
 let sseConnection = null
+
+// 布局状态（侧边栏与移动端抽屉）
+const isMobile = ref(false)
+const characterPanelVisible = ref(true)
+const infoPanelVisible = ref(true)
+const chapterPanelVisible = ref(true)
+const activeDrawer = ref(null)
+
+const LAYOUT_STORAGE_KEY = 'tv.layout.v1'
+
+const drawerTitle = computed(() => {
+  if (activeDrawer.value === 'character') return t('characterList') || '角色列表'
+  if (activeDrawer.value === 'info') return '信息面板'
+  if (activeDrawer.value === 'chapter') return '章节导航'
+  return ''
+})
+
+const panelStatus = computed(() => {
+  const opened = t('statusOpened') || '已展开'
+  const collapsed = t('statusCollapsed') || '已收起'
+  const openable = t('statusOpenable') || '可打开'
+
+  if (isMobile.value) {
+    return {
+      character: activeDrawer.value === 'character' ? opened : openable,
+      info: activeDrawer.value === 'info' ? opened : openable,
+      chapter: activeDrawer.value === 'chapter' ? opened : openable
+    }
+  }
+
+  return {
+    character: characterPanelVisible.value ? opened : collapsed,
+    info: infoPanelVisible.value ? opened : collapsed,
+    chapter: chapterPanelVisible.value ? opened : collapsed
+  }
+})
 
 // 正则配置
 const regexConfig = ref(loadConfig())
@@ -104,8 +142,8 @@ async function handleFileUpload(event) {
     loadingStatus.value = '正在初始化界面...'
     
     // 自动选中第一条消息
-    if (result.length > 1) {
-      selectedMessage.value = { ...result[1], floor: 1 }
+    if (result.length > 0) {
+      selectedMessage.value = { ...result[0], floor: 1 }
     }
     
     loadingProgress.value = 100
@@ -148,6 +186,110 @@ function handleSelectMessage(msg) {
 function jumpToFloor(floor) {
   const event = new CustomEvent('jump-to-floor', { detail: floor })
   window.dispatchEvent(event)
+  closeMobileMenu()
+  if (isMobile.value) {
+    closeDrawer()
+  }
+}
+
+function updateViewport() {
+  const nextIsMobile = window.innerWidth <= 1024
+  if (nextIsMobile !== isMobile.value) {
+    isMobile.value = nextIsMobile
+    if (!nextIsMobile) {
+      activeDrawer.value = null
+      showMobileMenu.value = false
+    }
+  }
+}
+
+function closeDrawer() {
+  activeDrawer.value = null
+  closeMobileMenu()
+}
+
+function toggleMobileMenu() {
+  showViewMenu.value = false
+  showMobileMenu.value = !showMobileMenu.value
+}
+
+function closeMobileMenu() {
+  showMobileMenu.value = false
+  showViewMenu.value = false
+}
+
+function toggleViewMenu() {
+  showViewMenu.value = !showViewMenu.value
+}
+
+function resetLayout() {
+  characterPanelVisible.value = true
+  infoPanelVisible.value = true
+  chapterPanelVisible.value = true
+  activeDrawer.value = null
+  closeMobileMenu()
+}
+
+function loadLayoutState() {
+  try {
+    const raw = localStorage.getItem(LAYOUT_STORAGE_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw)
+    if (typeof parsed.characterPanelVisible === 'boolean') {
+      characterPanelVisible.value = parsed.characterPanelVisible
+    }
+    if (typeof parsed.infoPanelVisible === 'boolean') {
+      infoPanelVisible.value = parsed.infoPanelVisible
+    }
+    if (typeof parsed.chapterPanelVisible === 'boolean') {
+      chapterPanelVisible.value = parsed.chapterPanelVisible
+    }
+  } catch {
+    // ignore invalid persisted layout data
+  }
+}
+
+function persistLayoutState() {
+  try {
+    const data = {
+      characterPanelVisible: characterPanelVisible.value,
+      infoPanelVisible: infoPanelVisible.value,
+      chapterPanelVisible: chapterPanelVisible.value
+    }
+    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(data))
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function handleCharacterPanelAction() {
+  closeMobileMenu()
+  if (!serverMode.value) return
+  if (isMobile.value) {
+    activeDrawer.value = 'character'
+    return
+  }
+  characterPanelVisible.value = !characterPanelVisible.value
+}
+
+function handleInfoPanelAction() {
+  closeMobileMenu()
+  if (!messages.value.length) return
+  if (isMobile.value) {
+    activeDrawer.value = 'info'
+    return
+  }
+  infoPanelVisible.value = !infoPanelVisible.value
+}
+
+function handleChapterPanelAction() {
+  closeMobileMenu()
+  if (!messages.value.length) return
+  if (isMobile.value) {
+    activeDrawer.value = 'chapter'
+    return
+  }
+  chapterPanelVisible.value = !chapterPanelVisible.value
 }
 
 // 编辑消息
@@ -230,7 +372,7 @@ function handleImportConfig(config) {
 function exportMarkdown() {
   let md = '# 聊天记录导出\n\n'
   
-  messages.value.slice(1).forEach((msg, idx) => {
+  messages.value.forEach((msg, idx) => {
     const time = new Date(msg.send_date).toLocaleString()
     const prefix = msg.is_user ? `**👤 ${t('user')}**` : `**🤖 ${msg.name}**`
     const content = extractContent(msg.mes, regexConfig.value)
@@ -305,13 +447,17 @@ async function loadFromServer({ character, filename, displayName }) {
 
     await new Promise(resolve => setTimeout(resolve, 100))
 
-    if (result.length > 1) {
-      selectedMessage.value = { ...result[1], floor: 1 }
+    if (result.length > 0) {
+      selectedMessage.value = { ...result[0], floor: 1 }
     }
 
     loadingProgress.value = 100
     loadingStatus.value = '加载完成！'
     await new Promise(resolve => setTimeout(resolve, 200))
+
+    if (isMobile.value) {
+      closeDrawer()
+    }
 
   } catch (error) {
     console.error('服务器加载错误:', error)
@@ -347,16 +493,26 @@ function handleKeydown(e) {
     showSearch.value = false
     editMessage.value = null
     showConfig.value = false
+    closeDrawer()
+    closeMobileMenu()
   }
 }
 
 onMounted(() => {
+  loadLayoutState()
+  updateViewport()
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('resize', updateViewport)
   detectServerMode()
+})
+
+watch([characterPanelVisible, infoPanelVisible, chapterPanelVisible], () => {
+  persistLayoutState()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('resize', updateViewport)
   if (sseConnection) {
     sseConnection.close()
   }
@@ -364,7 +520,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app-container">
+  <div class="app-container" @click="closeMobileMenu">
     <!-- 顶部工具栏 -->
     <header class="toolbar">
       <div class="toolbar-left">
@@ -373,31 +529,100 @@ onUnmounted(() => {
         <span v-if="serverMode" class="server-badge" :title="'Connected to ' + (serverStatus?.dataDir || 'server')">🟢 {{ t('serverMode') || '服务器模式' }}</span>
       </div>
       
-      <div class="toolbar-right">
+      <div class="toolbar-right" @click.stop>
+        <button
+          v-if="serverMode && !isMobile"
+          class="btn btn-panel"
+          @click="handleCharacterPanelAction"
+          :title="isMobile ? '打开角色列表' : (characterPanelVisible ? '收起角色列表' : '展开角色列表')"
+        >
+          {{ isMobile ? '👥' : (characterPanelVisible ? '👥◀' : '👥▶') }}
+        </button>
+
+        <button
+          v-if="messages.length && !isMobile"
+          class="btn btn-panel"
+          @click="handleInfoPanelAction"
+          :title="isMobile ? '打开信息面板' : (infoPanelVisible ? '收起信息面板' : '展开信息面板')"
+        >
+          {{ isMobile ? 'ℹ️' : (infoPanelVisible ? 'ℹ️◀' : 'ℹ️▶') }}
+        </button>
+
+        <button
+          v-if="messages.length && !isMobile"
+          class="btn btn-panel"
+          @click="handleChapterPanelAction"
+          :title="isMobile ? '打开章节导航' : (chapterPanelVisible ? '收起章节导航' : '展开章节导航')"
+        >
+          {{ isMobile ? '📑' : (chapterPanelVisible ? '📑◀' : '📑▶') }}
+        </button>
+
         <button class="btn btn-lang" @click="toggleLang" title="Switch Language / 言語切替">
-          {{ t('langBtn') }}
+          {{ isMobile ? '🌐' : t('langBtn') }}
         </button>
         
-        <label class="btn btn-primary">
-          {{ t('importBtn') }}
+        <label class="btn btn-primary" :title="t('importBtn')">
+          {{ isMobile ? '📁' : t('importBtn') }}
           <input type="file" accept=".jsonl,.json" @change="handleFileUpload" hidden>
         </label>
         
-        <button v-if="messages.length" class="btn" @click="showSearch = !showSearch">
+        <button v-if="messages.length && !isMobile" class="btn" @click="showSearch = !showSearch">
           {{ t('searchBtn') }}
         </button>
         
-        <button class="btn" @click="showConfig = true">
+        <button v-if="!isMobile" class="btn" @click="showConfig = true">
           {{ t('configBtn') }}
         </button>
         
-        <button v-if="messages.length" class="btn" @click="exportMarkdown">
+        <button v-if="messages.length && !isMobile" class="btn" @click="exportMarkdown">
           {{ t('exportMD') }}
         </button>
         
-        <button v-if="messages.length" class="btn" @click="exportJson">
+        <button v-if="messages.length && !isMobile" class="btn" @click="exportJson">
           {{ t('exportJSON') }}
         </button>
+
+        <div v-if="isMobile" class="mobile-menu-wrap">
+          <button class="btn btn-panel" @click="toggleMobileMenu" :title="t('more') || '更多'">⋯</button>
+          <div v-if="showMobileMenu" class="mobile-menu">
+            <button class="menu-item" @click="toggleViewMenu">
+              {{ t('viewSettings') || '视图设置' }}
+            </button>
+            <div v-if="showViewMenu" class="menu-subgroup">
+              <button
+                v-if="serverMode"
+                class="menu-sub-item"
+                @click="handleCharacterPanelAction"
+              >
+                <span>{{ t('panelCharacter') || '角色列表' }}</span>
+                <span class="menu-state">{{ panelStatus.character }}</span>
+              </button>
+              <button
+                v-if="messages.length"
+                class="menu-sub-item"
+                @click="handleInfoPanelAction"
+              >
+                <span>{{ t('panelInfo') || '信息面板' }}</span>
+                <span class="menu-state">{{ panelStatus.info }}</span>
+              </button>
+              <button
+                v-if="messages.length"
+                class="menu-sub-item"
+                @click="handleChapterPanelAction"
+              >
+                <span>{{ t('panelChapter') || '章节导航' }}</span>
+                <span class="menu-state">{{ panelStatus.chapter }}</span>
+              </button>
+              <button class="menu-sub-item menu-sub-item-reset" @click="resetLayout">
+                <span>{{ t('resetLayout') || '重置布局' }}</span>
+              </button>
+            </div>
+            <button v-if="messages.length" class="menu-item" @click="showSearch = !showSearch; closeMobileMenu()">{{ t('searchBtn') }}</button>
+            <button class="menu-item" @click="showConfig = true; closeMobileMenu()">{{ t('configBtn') }}</button>
+            <button v-if="messages.length" class="menu-item" @click="exportMarkdown(); closeMobileMenu()">{{ t('exportMD') }}</button>
+            <button v-if="messages.length" class="menu-item" @click="exportJson(); closeMobileMenu()">{{ t('exportJSON') }}</button>
+          </div>
+        </div>
       </div>
     </header>
     
@@ -419,21 +644,28 @@ onUnmounted(() => {
       v-if="showSearch && messages.length"
       @search="handleSearch"
       @replace="handleReplace"
-      @close="showSearch = false"
+      @close="showSearch = false; closeMobileMenu()"
     />
     
     <!-- 主内容区 -->
-    <main class="main-content">
-      <!-- 左侧：服务器模式显示角色列表，有消息时显示信息面板 -->
-      <CharacterList
-        v-if="serverMode"
-        @load-chat="loadFromServer"
-      />
-      <InfoPanel 
-        v-if="messages.length"
-        :message="selectedMessage"
-        :stats="stats"
-      />
+    <main class="main-content" :class="{ mobile: isMobile }">
+      <!-- 左侧：角色列表（桌面） -->
+      <div
+        v-if="!isMobile && serverMode"
+        class="sidebar-slot character-slot"
+        :class="{ collapsed: !characterPanelVisible }"
+      >
+        <CharacterList @load-chat="loadFromServer" />
+      </div>
+
+      <!-- 左侧：信息面板（桌面） -->
+      <div
+        v-if="!isMobile && messages.length"
+        class="sidebar-slot info-slot"
+        :class="{ collapsed: !infoPanelVisible }"
+      >
+        <InfoPanel :message="selectedMessage" :stats="stats" />
+      </div>
       
       <!-- 中间消息列表 -->
       <div class="message-area">
@@ -470,13 +702,42 @@ onUnmounted(() => {
         </div>
       </div>
       
-      <!-- 右侧章节导航 -->
-      <ChapterPanel 
-        v-if="messages.length"
-        :messages="messages"
-        @jump-to="jumpToFloor"
-      />
+      <!-- 右侧章节导航（桌面） -->
+      <div
+        v-if="!isMobile && messages.length"
+        class="sidebar-slot chapter-slot"
+        :class="{ collapsed: !chapterPanelVisible }"
+      >
+        <ChapterPanel :messages="messages" @jump-to="jumpToFloor" />
+      </div>
     </main>
+
+    <!-- 移动端抽屉 -->
+    <div v-if="isMobile && activeDrawer" class="drawer-overlay" @click="closeDrawer">
+      <aside class="mobile-drawer" :class="{ right: activeDrawer === 'chapter' }" @click.stop>
+        <div class="drawer-header">
+          <h3>{{ drawerTitle }}</h3>
+          <button class="btn drawer-close" @click="closeDrawer">✕</button>
+        </div>
+
+        <div class="drawer-body">
+          <CharacterList
+            v-if="activeDrawer === 'character' && serverMode"
+            @load-chat="loadFromServer"
+          />
+          <InfoPanel
+            v-else-if="activeDrawer === 'info' && messages.length"
+            :message="selectedMessage"
+            :stats="stats"
+          />
+          <ChapterPanel
+            v-else-if="activeDrawer === 'chapter' && messages.length"
+            :messages="messages"
+            @jump-to="jumpToFloor"
+          />
+        </div>
+      </aside>
+    </div>
     
     <!-- 编辑弹窗 -->
     <EditModal 
@@ -500,6 +761,7 @@ onUnmounted(() => {
 <style scoped>
 .app-container {
   height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
@@ -550,6 +812,11 @@ onUnmounted(() => {
 .toolbar-right {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .btn {
@@ -582,11 +849,109 @@ onUnmounted(() => {
   background: linear-gradient(135deg, #5558e3 0%, #7c4fe8 100%);
 }
 
+.btn-panel {
+  min-width: 52px;
+  padding: 8px 10px;
+}
+
+.mobile-menu-wrap {
+  position: relative;
+}
+
+.mobile-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 150px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  z-index: 250;
+}
+
+.menu-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font-size: 0.85rem;
+}
+
+.menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.menu-subgroup {
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.menu-sub-item {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 9px 16px;
+  font-size: 0.82rem;
+}
+
+.menu-sub-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.menu-sub-item-reset {
+  color: var(--text-primary);
+  border-top: 1px dashed var(--border-color);
+}
+
+.menu-state {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
 .main-content {
   flex: 1;
   display: flex;
   overflow: hidden;
   min-height: 0;
+  position: relative;
+}
+
+.sidebar-slot {
+  transition: width 0.2s ease, min-width 0.2s ease, opacity 0.2s ease;
+  overflow: hidden;
+  opacity: 1;
+}
+
+.character-slot {
+  width: 300px;
+  min-width: 300px;
+}
+
+.info-slot {
+  width: 320px;
+  min-width: 320px;
+}
+
+.chapter-slot {
+  width: 280px;
+  min-width: 280px;
+}
+
+.sidebar-slot.collapsed {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
 }
 
 .message-area {
@@ -709,5 +1074,195 @@ onUnmounted(() => {
   background: linear-gradient(90deg, #6366f1, #8b5cf6);
   border-radius: 3px;
   transition: width 0.2s ease;
+}
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1100;
+}
+
+.mobile-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(92vw, 380px);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  animation: drawerIn 0.2s ease;
+}
+
+.mobile-drawer.right {
+  left: auto;
+  right: 0;
+  border-right: none;
+  border-left: 1px solid var(--border-color);
+  animation: drawerInRight 0.2s ease;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.drawer-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.drawer-close {
+  padding: 6px 10px;
+}
+
+.drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@keyframes drawerIn {
+  from {
+    transform: translateX(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes drawerInRight {
+  from {
+    transform: translateX(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1024px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+  }
+
+  .toolbar-left {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-right {
+    justify-content: flex-start;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .toolbar-right::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .btn {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  .btn-panel {
+    min-width: 42px;
+    padding: 8px;
+  }
+
+  .logo {
+    font-size: 1rem;
+  }
+
+  .file-info {
+    font-size: 0.78rem;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .main-content.mobile {
+    display: block;
+  }
+
+  .message-area {
+    width: 100%;
+  }
+
+  .mobile-drawer :deep(.character-list),
+  .mobile-drawer :deep(.info-panel),
+  .mobile-drawer :deep(.chapter-panel) {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    border: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .toolbar {
+    padding: 8px 10px;
+  }
+
+  .toolbar-left {
+    gap: 8px;
+  }
+
+  .server-badge {
+    display: none;
+  }
+
+  .file-info {
+    max-width: 65vw;
+  }
+
+  .btn {
+    padding: 7px 10px;
+    font-size: 0.8rem;
+  }
+
+  .btn-panel {
+    min-width: 38px;
+    padding: 7px;
+  }
+
+  .mobile-menu {
+    min-width: 132px;
+  }
+
+  .loading-content {
+    min-width: 0;
+    width: calc(100vw - 24px);
+    padding: 24px 16px;
+  }
+
+  .empty-state {
+    min-height: 0;
+    padding: 24px 14px;
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+  }
 }
 </style>

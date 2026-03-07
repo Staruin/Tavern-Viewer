@@ -19,8 +19,8 @@ const emit = defineEmits(['edit', 'select-message'])
 // 容器引用
 const containerRef = ref(null)
 
-// 当前选中的消息
-const selectedMessage = ref(null)
+// 当前选中的楼层
+const selectedFloor = ref(null)
 
 // 跳转输入
 const jumpInput = ref('')
@@ -68,7 +68,7 @@ function jumpToFloor(floor) {
     el.scrollIntoView({ behavior: 'instant', block: 'start' })
     // 选中该消息
     const msg = props.messages[index]
-    selectedMessage.value = msg
+    selectedFloor.value = floor
     emit('select-message', { ...msg, floor })
   }
 }
@@ -82,8 +82,9 @@ function handleJumpInput() {
 
 // 点击消息
 function handleClick(msg, index) {
-  selectedMessage.value = msg
-  emit('select-message', { ...msg, floor: index + 1 })
+  const floor = index + 1
+  selectedFloor.value = floor
+  emit('select-message', { ...msg, floor })
 }
 
 // 监听外部跳转事件
@@ -101,7 +102,7 @@ onUnmounted(() => {
 
 // 消息列表变化时重置选中
 watch(() => props.messages, () => {
-  selectedMessage.value = null
+  selectedFloor.value = props.messages.length ? 1 : null
   // 滚动回顶部
   nextTick(() => {
     if (containerRef.value) {
@@ -142,7 +143,7 @@ defineExpose({ jumpToFloor })
           :class="{ 
             'user-message': msg.is_user, 
             'ai-message': !msg.is_user,
-            'selected': selectedMessage?.originalIndex === msg.originalIndex
+            'selected': selectedFloor === idx + 1
           }"
           @click="handleClick(msg, idx)"
         >
@@ -479,5 +480,49 @@ defineExpose({ jumpToFloor })
 
 .scroll-container::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+}
+
+@media (max-width: 1024px) {
+  .jump-bar {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .jump-input {
+    width: 100%;
+  }
+
+  .jump-input input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+
+  .message-card {
+    margin: 10px 8px;
+    padding: 12px 14px;
+    border-radius: 10px;
+  }
+
+  .message-meta {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .message-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .message-time {
+    font-size: 0.75rem;
+  }
+
+  .message-body {
+    max-height: none;
+  }
 }
 </style>

@@ -1,6 +1,10 @@
 services:
   tavern-viewer:
-    build: .
+    build:
+      context: .
+      args:
+        # 国内/NAS 网络不稳定时可改为: https://registry.npmmirror.com
+        NPM_REGISTRY: https://registry.npmjs.org
     container_name: tavern-viewer
     ports:
       - "3000:3000"

@@ -1,20 +1,31 @@
 # Build stage: compile frontend
-FROM node:20-alpine AS build
+# Use Debian-based image to avoid esbuild SIGSEGV issues seen on some NAS/alpine environments.
+FROM node:20-bookworm-slim AS build
 
 WORKDIR /app
 
+# Allow overriding npm registry for regions/proxy-limited networks.
+ARG NPM_REGISTRY=https://registry.npmjs.org
+
 # Install frontend dependencies
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm config set registry "$NPM_REGISTRY" \
+    && npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm ci --no-audit --no-fund
 
 # Copy source and build
 COPY . .
 RUN npm run build
 
 # Production stage: run server
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 
 WORKDIR /app
+
+# Keep same registry behavior in runtime dependency install.
+ARG NPM_REGISTRY=https://registry.npmjs.org
 
 # Copy built frontend
 COPY --from=build /app/dist ./dist
@@ -22,7 +33,11 @@ COPY --from=build /app/dist ./dist
 # Copy server files
 COPY server/package.json server/package-lock.json* ./server/
 WORKDIR /app/server
-RUN npm install --production
+RUN npm config set registry "$NPM_REGISTRY" \
+    && npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm install --production --no-audit --no-fund
 
 # Copy server source
 COPY server/server.js ./
